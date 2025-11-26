@@ -45,6 +45,7 @@ browsers/
 *.csv
 schedule.json
 schedules.json
+feishu_config.json
 
 # IDE
 .idea/

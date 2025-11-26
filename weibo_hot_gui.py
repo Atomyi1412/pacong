@@ -75,9 +75,9 @@ try:
 except Exception:
     TRAY_AVAILABLE = False
 
-APP_TOKEN = os.environ.get("FEISHU_APP_TOKEN", "VzyDbBfWjaJXoTsEhcfcYSRfnWd")
-TABLE_ID = os.environ.get("FEISHU_TABLE_ID", "tbl2UPfeJl47mlPO")
-PBT = os.environ.get("FEISHU_PBT", "pt-quXMXYkLJM6w8SftWY4JCYBuzeZfxcXRX1j7CmmaAQAAA0DB9ALAs4VVb-pS")
+APP_TOKEN = os.environ.get("FEISHU_APP_TOKEN", "")
+TABLE_ID = os.environ.get("FEISHU_TABLE_ID", "")
+PBT = os.environ.get("FEISHU_PBT", "")
 
 # 使用脚本所在目录作为持久化文件路径，避免工作目录不一致导致读写不同文件
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -1292,29 +1292,66 @@ class HotGUI:
         container = ttk.Frame(dlg, padding=16)
         container.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(container, text="AppToken").grid(row=0, column=0, sticky=tk.W)
+        # 1. 解析链接区域
+        ttk.Label(container, text="多维表链接（自动解析）").grid(row=0, column=0, sticky=tk.W)
+        link_var = tk.StringVar()
+        entry_link = ttk.Entry(container, textvariable=link_var, width=48)
+        entry_link.grid(row=0, column=1, sticky=tk.EW, padx=8)
+        
+        def parse_link():
+            url = link_var.get().strip()
+            if not url:
+                return
+            try:
+                # 简单解析逻辑
+                # 格式: .../base/<app_token>?table=<table_id>...
+                import re
+                # 匹配 app_token (base/ 之后，? 之前)
+                token_match = re.search(r"/base/([a-zA-Z0-9]+)", url)
+                if token_match:
+                    self.app_token_var.set(token_match.group(1))
+                
+                # 匹配 table_id (table= 之后，& 或结束之前)
+                table_match = re.search(r"table=([a-zA-Z0-9]+)", url)
+                if table_match:
+                    self.table_id_var.set(table_match.group(1))
+                
+                if token_match or table_match:
+                    messagebox.showinfo("解析成功", "已从链接提取 AppToken / TableId")
+                else:
+                    messagebox.showwarning("解析失败", "未从链接中找到有效信息，请检查链接格式")
+            except Exception as e:
+                messagebox.showerror("错误", f"解析出错: {e}")
+
+        btn_parse = ttk.Button(container, text="解析", command=parse_link)
+        btn_parse.grid(row=0, column=2, sticky=tk.W)
+
+        ttk.Separator(container).grid(row=1, column=0, columnspan=3, sticky=tk.EW, pady=10)
+
+        # 2. 详细参数区域
+        ttk.Label(container, text="AppToken").grid(row=2, column=0, sticky=tk.W)
         entry_app = ttk.Entry(container, textvariable=self.app_token_var, width=48)
-        entry_app.grid(row=0, column=1, sticky=tk.EW, padx=8)
+        entry_app.grid(row=2, column=1, sticky=tk.EW, padx=8)
 
-        ttk.Label(container, text="TableId").grid(row=1, column=0, sticky=tk.W)
+        ttk.Label(container, text="TableId").grid(row=3, column=0, sticky=tk.W)
         entry_tbl = ttk.Entry(container, textvariable=self.table_id_var, width=48)
-        entry_tbl.grid(row=1, column=1, sticky=tk.EW, padx=8)
+        entry_tbl.grid(row=3, column=1, sticky=tk.EW, padx=8)
 
-        ttk.Label(container, text="PersonalBaseToken (PBT)").grid(row=2, column=0, sticky=tk.W)
+        ttk.Label(container, text="PersonalBaseToken (PBT)").grid(row=4, column=0, sticky=tk.W)
         entry_pbt = ttk.Entry(container, textvariable=self.pbt_var, width=48)
-        entry_pbt.grid(row=2, column=1, sticky=tk.EW, padx=8)
+        entry_pbt.grid(row=4, column=1, sticky=tk.EW, padx=8)
 
         help_text = (
-            "请填写：AppToken（Base 文档链接中的 /base/:app_token），"
-            "TableId（链接参数 table=tbl...），"
-            "PBT（在 Base 文档中生成的授权码，形如 pt-...）。"
+            "说明：\n"
+            "1. 复制多维表浏览器地址栏链接到上方，点击“解析”可自动填充 AppToken 和 TableId。\n"
+            "2. PBT (PersonalBaseToken) 仍需手动获取（在多维表右上角“扩展脚本”中生成）。"
         )
-        ttk.Label(container, text=help_text, foreground="#666", wraplength=420).grid(
-            row=3, column=0, columnspan=2, sticky=tk.W, pady=(6, 0)
+        ttk.Label(container, text=help_text, foreground="#666", wraplength=480, justify=tk.LEFT).grid(
+            row=5, column=0, columnspan=3, sticky=tk.W, pady=(10, 0)
         )
 
         btns = ttk.Frame(container)
-        btns.grid(row=4, column=0, columnspan=2, sticky=tk.E)
+        btns.grid(row=6, column=0, columnspan=3, sticky=tk.E, pady=(10, 0))
         def save_and_close():
             cfg = {
                 "app_token": self.app_token_var.get().strip(),

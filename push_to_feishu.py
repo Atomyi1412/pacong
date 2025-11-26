@@ -13,14 +13,11 @@ from baseopensdk.api.base.v1.model.create_app_table_record_request import (
 
 # ===== 配置区域（支持环境变量覆盖） =====
 # 从链接中提取的 AppToken 与 TableId
-APP_TOKEN = os.environ.get("FEISHU_APP_TOKEN", "VzyDbBfWjaJXoTsEhcfcYSRfnWd")
-TABLE_ID = os.environ.get("FEISHU_TABLE_ID", "tbl2UPfeJl47mlPO")
+APP_TOKEN = os.environ.get("FEISHU_APP_TOKEN", "")
+TABLE_ID = os.environ.get("FEISHU_TABLE_ID", "")
 
-# PersonalBaseToken（授权码），优先取环境变量；如未设置则使用用户提供的默认值
-PBT = os.environ.get(
-    "FEISHU_PBT",
-    "pt-quXMXYkLJM6w8SftWY4JCYBuzeZfxcXRX1j7CmmaAQAAA0DB9ALAs4VVb-pS",
-)
+# PersonalBaseToken（授权码），优先取环境变量
+PBT = os.environ.get("FEISHU_PBT", "")
 
 # 代理（如需要）
 HTTPS_PROXY = os.environ.get("HTTPS_PROXY")
@@ -44,16 +41,20 @@ def fetch_hot_top10() -> List[Dict]:
     return items
 
 
-def create_record(fields: Dict) -> Optional[Dict]:
+def create_record(fields: Dict, app_token: str = APP_TOKEN, table_id: str = TABLE_ID, pbt: str = PBT) -> Optional[Dict]:
     """使用 BaseOpenSDK 通过 PersonalBaseToken 写入一条记录。返回响应字典或 None。"""
     try:
-        client = BaseClient.builder().app_token(APP_TOKEN).personal_base_token(PBT).build()
+        if not app_token or not table_id or not pbt:
+            print("SDK 写入失败: 缺少配置参数 (AppToken/TableId/PBT)")
+            return None
+            
+        client = BaseClient.builder().app_token(app_token).personal_base_token(pbt).build()
         body = AppTableRecord.builder().fields(fields).build()
         req = (
             CreateAppTableRecordRequest
             .builder()
-            .app_token(APP_TOKEN)
-            .table_id(TABLE_ID)
+            .app_token(app_token)
+            .table_id(table_id)
             .request_body(body)
             .build()
         )
@@ -76,7 +77,7 @@ def create_record(fields: Dict) -> Optional[Dict]:
         return None
 
 
-def push_items_to_bitable(items: List[Dict]) -> int:
+def push_items_to_bitable(items: List[Dict], app_token: str = APP_TOKEN, table_id: str = TABLE_ID, pbt: str = PBT) -> int:
     """将抓取到的 items 批量写入飞书多维表。返回成功条数。"""
     if not items:
         print("未获取到热搜数据，写入终止。")
@@ -91,7 +92,7 @@ def push_items_to_bitable(items: List[Dict]) -> int:
             "链接": it.get("link"),
             "抓取时间": ts,
         }
-        resp = create_record(fields)
+        resp = create_record(fields, app_token=app_token, table_id=table_id, pbt=pbt)
         if resp is not None:
             success += 1
         # 简单的节流，避免触发接口限频（PBT 单文档 2qps）
