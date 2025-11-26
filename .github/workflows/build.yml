@@ -51,7 +51,7 @@ jobs:
         New-Item -ItemType Directory -Force -Path "dist\WeiboHotGUI\browsers"
         Copy-Item -Recurse -Force $browserDir "dist\WeiboHotGUI\browsers\"
         Copy-Item -Recurse -Force $headlessDir "dist\WeiboHotGUI\browsers\"
-        Copy-Item "README.md" "dist\WeiboHotGUI\使用说明.md"
+        Copy-Item "README.md" "dist\WeiboHotGUI\README_dist.md"
 
     - name: Copy Browsers (macOS)
       if: runner.os == 'macOS'
@@ -59,7 +59,7 @@ jobs:
         mkdir -p dist/WeiboHotGUI/browsers
         cp -R ~/Library/Caches/ms-playwright/chromium-* dist/WeiboHotGUI/browsers/
         cp -R ~/Library/Caches/ms-playwright/chromium_headless_shell-* dist/WeiboHotGUI/browsers/
-        cp README.md dist/WeiboHotGUI/使用说明.md
+        cp README.md dist/WeiboHotGUI/README_dist.md
         # 移除隔离属性
         xattr -cr dist/WeiboHotGUI/WeiboHotGUI || true
 
