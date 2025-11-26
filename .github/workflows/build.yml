@@ -1,0 +1,70 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-14]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+
+    - name: Install Playwright Browsers
+      run: |
+        playwright install chromium
+        # 验证安装
+        python -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); print('Playwright installed'); p.stop()"
+
+    - name: Build with PyInstaller
+      run: |
+        pyinstaller WeiboHotGUI.spec --noconfirm
+
+    - name: Copy Browsers (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        $browserDir = (Get-ChildItem "$env:LOCALAPPDATA\ms-playwright\chromium-*" | Sort-Object Name -Descending | Select-Object -First 1).FullName
+        $headlessDir = (Get-ChildItem "$env:LOCALAPPDATA\ms-playwright\chromium_headless_shell-*" | Sort-Object Name -Descending | Select-Object -First 1).FullName
+        
+        Write-Host "Found Browser: $browserDir"
+        Write-Host "Found Headless: $headlessDir"
+
+        New-Item -ItemType Directory -Force -Path "dist\WeiboHotGUI\browsers"
+        Copy-Item -Recurse -Force $browserDir "dist\WeiboHotGUI\browsers\"
+        Copy-Item -Recurse -Force $headlessDir "dist\WeiboHotGUI\browsers\"
+        Copy-Item "README.md" "dist\WeiboHotGUI\使用说明.md"
+
+    - name: Copy Browsers (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        mkdir -p dist/WeiboHotGUI/browsers
+        cp -R ~/Library/Caches/ms-playwright/chromium-* dist/WeiboHotGUI/browsers/
+        cp -R ~/Library/Caches/ms-playwright/chromium_headless_shell-* dist/WeiboHotGUI/browsers/
+        cp README.md dist/WeiboHotGUI/使用说明.md
+        # 移除隔离属性
+        xattr -cr dist/WeiboHotGUI/WeiboHotGUI || true
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: WeiboHotGUI-${{ matrix.os }}
+        path: dist/WeiboHotGUI/
