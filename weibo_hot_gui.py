@@ -55,6 +55,7 @@ from weibo_hot_playwright import fetch_top_via_api, fetch_top_via_dom, save_to_e
 from toutiao_hot_playwright import fetch_toutiao_via_api, fetch_toutiao_via_dom
 from reddit_hot_playwright import fetch_reddit_via_api, fetch_reddit_via_dom
 from hn_hot_playwright import fetch_hn_via_api, fetch_hn_via_dom
+from feishu_utils import ensure_fields_exist
 
 # 可选：写入飞书所需配置（支持环境变量）
 try:
@@ -147,15 +148,41 @@ def write_to_feishu(items: List[Dict], app_token: str, table_id: str, pbt: str) 
         raise RuntimeError("BaseOpenSDK 未安装，无法写入飞书。")
     client = BaseClient.builder().app_token(app_token).personal_base_token(pbt).build()
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 字段检查与自动创建
+    field_types = {}
+    if len(items) > 0:
+        first_item = items[0]
+        # 构造样本数据，优先使用复杂类型以触发自动创建
+        sample_fields = {
+            "排名": first_item.get("rank"),
+            "标题": first_item.get("title"),
+            "链接": {"text": first_item.get("title"), "link": first_item.get("link")},
+            "渠道": first_item.get("channel") or "微博",
+            "抓取时间": ts,
+        }
+        if "hot_value" in first_item:
+            sample_fields["热度"] = first_item["hot_value"]
+            
+        field_types = ensure_fields_exist(client, app_token, table_id, sample_fields)
+
     ok = 0
     for it in items:
         fields = {
             "排名": it.get("rank"),
             "标题": it.get("title"),
-            "链接": it.get("link"),
+            "链接": it.get("link"), # 默认使用纯文本链接
             "渠道": it.get("channel") or "微博",
             "抓取时间": ts,
         }
+        
+        # 如果确定是超链接字段(15)，则使用对象格式
+        if field_types.get("链接") == 15:
+             fields["链接"] = {"text": it.get("title"), "link": it.get("link")}
+
+        if "hot_value" in it:
+            fields["热度"] = it["hot_value"]
+
         body = AppTableRecord.builder().fields(fields).build()
         req = (
             CreateAppTableRecordRequest
